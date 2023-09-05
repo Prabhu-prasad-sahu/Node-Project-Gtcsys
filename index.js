@@ -6,6 +6,7 @@ let port = 4040
 
 
 app.use(express.json())
+app.use(express.urlencoded({ extended: true }))
 app.use("/API", userController)
 
 
