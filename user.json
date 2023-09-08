@@ -24,24 +24,18 @@
   },
   {
     "id": 2,
-    "name": "Alex Doe",
+    "name": "prabh",
     "homePhone": "800-45-4567",
-    "mobilePhone": "877-123-7897",
-    "email": "Alex@example.com",
-    "dateOfBirth": "1980-12-02T00:00:00.000Z",
-    "registered": false,
+    "mobilePhone": "8766777447",
+    "email": "prabhu1@example.com",
+    "dateOfBirth": "1992-03-10T00:00:00.000Z",
+    "registered": true,
     "emergencyContacts": [
       {
-        "id": 3,
-        "name": "Sitter Doe",
-        "phone": "888-666-1212",
+        "id": 44,
+        "name": "Lucas Brown",
+        "mobilePhone": "888-333-4444",
         "relationship": "spouse"
-      },
-      {
-        "id": 4,
-        "name": "Martin Doe",
-        "phone": "977-123-1212",
-        "relationship": "parent"
       }
     ]
   },
@@ -75,7 +69,7 @@
     "mobilePhone": "877-987-4321",
     "email": "sarah@example.com",
     "dateOfBirth": "1995-05-15T00:00:00.000Z",
-    "registered": true,
+    "registered": false,
     "emergencyContacts": [
       {
         "id": 7,
@@ -282,7 +276,7 @@
     "mobilePhone": "877-789-1234",
     "email": "william@example.com",
     "dateOfBirth": "1982-07-30T00:00:00.000Z",
-    "registered": true,
+    "registered": false,
     "emergencyContacts": [
       {
         "id": 25,
@@ -334,7 +328,7 @@
     "mobilePhone": "877-789-0123",
     "email": "michael@example.com",
     "dateOfBirth": "1987-09-15T00:00:00.000Z",
-    "registered": true,
+    "registered": false,
     "emergencyContacts": [
       {
         "id": 30,
@@ -421,7 +415,7 @@
     "mobilePhone": "877-789-1234",
     "email": "eleanor@example.com",
     "dateOfBirth": "1993-08-18T00:00:00.000Z",
-    "registered": true,
+    "registered": false,
     "emergencyContacts": [
       {
         "id": 39,
@@ -511,7 +505,7 @@
     "mobilePhone": "877-333-4444",
     "email": "noah@example.com",
     "dateOfBirth": "1994-10-28T00:00:00.000Z",
-    "registered": false,
+    "registered": true,
     "emergencyContacts": []
   },
   {
@@ -521,7 +515,7 @@
     "mobilePhone": "877-444-5555",
     "email": "lily@example.com",
     "dateOfBirth": "1991-02-25T00:00:00.000Z",
-    "registered": true,
+    "registered": false,
     "emergencyContacts": []
   },
   {
@@ -532,16 +526,6 @@
     "email": "elijah@example.com",
     "dateOfBirth": "1987-07-18T00:00:00.000Z",
     "registered": true,
-    "emergencyContacts": null
-  },
-  {
-    "id": 26,
-    "name": "Grace Brown",
-    "homePhone": "800-555-6666",
-    "mobilePhone": "877-666-7777",
-    "email": "grace@example.com",
-    "dateOfBirth": "1992-03-10T00:00:00.000Z",
-    "registered": false,
     "emergencyContacts": null
   }
 ]
