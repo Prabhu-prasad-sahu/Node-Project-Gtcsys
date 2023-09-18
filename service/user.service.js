@@ -1,4 +1,8 @@
 const fs = require("fs")
+const customError = require("../middleware/customError")
+const { filterUsersByRegistered, paginateUsers, sortUsersById } = require("../utils/static")
+const { applyFilters, paginateData, sortData } = require("../utils/dynamic");
+const { commonResponseHandler } = require("../middleware/responceHandler");
 
 //page=2&pageSize=10&sortBy=name&filter=age:25.
 
@@ -6,94 +10,52 @@ let rawdata = fs.readFileSync('user.json');
 let userData = JSON.parse(rawdata);
 
 const getAllUser = (req, rsp) => {
-    rsp.status(200).json({ users: userData })
+    rsp.sendResponse(userData)
 }
-
-const getRetrieval = (req, rsp) => {
-
-    //filter
+const getRetrieval = (req, rsp, next) => {
     let { page, sortByid } = req.query
     let { Registered } = req.body
-    if (Registered == "true") {
-        filterByRegistered = userData.filter((user) => {
-            return user.registered === true;
-        });
-    } else if (!Registered) {
-        filterByRegistered = userData
-    } else {
-        filterByRegistered = userData.filter((user) => {
-            return user.registered === false;
-        });
-    }
-    // pagenation
-    const pageAsNumber = Number.parseInt(page) || 1
-    const limitAsNumber = 5
-    const start = (pageAsNumber - 1) * limitAsNumber;
-    const end = start + limitAsNumber;
-    const users = filterByRegistered.slice(start, end);
+    let filterByRegistered = filterUsersByRegistered(userData, Registered);
+    let paginatedUsers = paginateUsers(filterByRegistered, page);
+    let sortedUsers = sortUsersById(paginatedUsers, sortByid);
 
-    if (sortByid === "asc") {
-        users.sort((a, b) => a.id - b.id);
-    }
-    if (sortByid === "desc") {
-        users.sort((a, b) => b.id - a.id);
-    }
+    if (sortedUsers.length === 0) {
+        return rsp.sendResponse("no content in this page", 204);
 
-    if (users.length == 0) {
-        return rsp.status(204).send({ message: "no user information" })
     }
-
-    rsp.status(200).json({ inThisPage: users.length, afterFilter: filterByRegistered.length, users: users })
+    rsp.sendResponse({ inThisPage: sortedUsers.length, afterFilter: filterByRegistered.length, users: sortedUsers })
 }
 
 const postRetrieval = (req, rsp) => {
-    //filter
-    let { Registered, page, sortByid } = req.body
-    if (Registered == "true") {
-        filterByRegistered = userData.filter((user) => {
-            return user.registered === true;
-        });
-    } else if (!Registered) {
-        filterByRegistered = userData
-    } else {
-        filterByRegistered = userData.filter((user) => {
-            return user.registered === false;
-        });
-    }
-    // pagenation
-    const pageAsNumber = Number.parseInt(page) || 1
-    const limitAsNumber = 5
-    const start = (pageAsNumber - 1) * limitAsNumber;
-    const end = start + limitAsNumber;
-    const users = filterByRegistered.slice(start, end);
+    let { Registered, page, sortByid } = req.body;
 
-    if (sortByid === "asc") {
-        users.sort((a, b) => a.id - b.id);
-    }
-    if (sortByid === "desc") {
-        users.sort((a, b) => b.id - a.id);
-    }
+    let filterByRegistered = filterUsersByRegistered(userData, Registered);
+    let paginatedUsers = paginateUsers(filterByRegistered, page);
+    let sortedUsers = sortUsersById(paginatedUsers, sortByid);
 
-    if (users.length == 0) {
-        return rsp.status(204).send({ message: "no user information" })
+    if (sortedUsers.length === 0) {
+        return rsp.sendResponse("no content in this page", 204);
     }
-
-    rsp.status(200).json({ inThisPage: users.length, afterFilter: filterByRegistered.length, users: users })
+    rsp.sendResponse({
+        inThisPage: sortedUsers.length,
+        afterFilter: filterByRegistered.length,
+        users: sortedUsers,
+    })
 }
 
-const getUserById = (req, rsp) => {
+const getUserById = (req, rsp, next) => {
 
     const userId = parseInt(req.params.id);
     let getUserData = userData.find((users) => {
         return users.id == userId
     })
     if (!getUserData) {
-        return rsp.status(404).json({ error: 'User not found' });
+        return next(new customError('User not found', 404))
     }
-    rsp.status(200).json({ user: getUserData })
+    rsp.sendResponse(getUserData)
 }
 
-let create = (req, rsp) => {
+let create = (req, rsp, next) => {
     let newUser = {
         id: userData.length + 1,
         name: req.body.name,
@@ -109,29 +71,28 @@ let create = (req, rsp) => {
     fs.readFile('user.json', 'utf8', (err, data) => {
         if (err) {
             console.error('Error:', err);
-            return rsp.status(500).json({ error: 'Internal Server Error' });
+            return next(new customError('Internal Server Error', 500))
         }
         let users = JSON.parse(data);
         users.push(newUser);
         fs.writeFile('user.json', JSON.stringify(users), (err) => {
             if (err) {
                 console.error('Error:', err);
-                return rsp.status(500).json({ error: 'Internal Server Error' });
+                return next(new customError('Internal Server Error', 500))
             }
-
-            rsp.status(201).json({ created: true, userId: newUser.id });
+            rsp.sendResponse({ userId: newUser.id }, 201)
         });
     });
 };
 
-const updateUser = (req, rsp) => {
+const updateUser = (req, rsp, next) => {
     let userID = req.params.id
     let { name, mobilePhone, email, dateOfBirth, registered, emergencyContacts } = req.body
     let getUserData = userData.find((users) => {
         return users.id == userID
     })
     if (!getUserData) {
-        return rsp.status(404).json({ message: "user not found" })
+        return next(new customError("user not found", 404))
     }
     getUserData.name = name
     getUserData.mobilePhone = mobilePhone
@@ -141,19 +102,19 @@ const updateUser = (req, rsp) => {
     getUserData.emergencyContacts = emergencyContacts
     fs.writeFile('user.json', JSON.stringify(userData), 'utf8', (err) => {
         if (err) {
-            console.error(err);
+
+            return next(new customError('Internal Server Error', 500))
         }
     })
-    rsp.json({ message: 'User updated successfully.', user: getUserData });
+    rsp.sendResponse({ message: 'User updated successfully.', user: getUserData })
 }
-
 const deleteUser = (req, rsp) => {
     let idToRemove = req.params.id
     let getUserID = userData.find((users) => {
         return users.id == idToRemove
     })
     if (!getUserID) {
-        return rsp.status(404).json({ message: "user not found" })
+        return next(new customError("user not found", 404))
     }
     let getUserIndex = userData.findIndex((users) => {
         return users.id == idToRemove
@@ -162,192 +123,75 @@ const deleteUser = (req, rsp) => {
     fs.writeFile('user.json', JSON.stringify(userData), 'utf8', (err) => {
         if (err) {
             console.error(err);
+            return next(new customError('Internal Server Error', 500))
         }
-
-        rsp.status(200).json({ Message: "User has been removed" }); // 204 No Content indicates successful deletion
+        rsp.sendResponse({ Message: "User has been removed" })
     });
 
 }
 
-const patchUser = (req, rsp) => {
+const patchUser = (req, rsp, next) => {
     let idToPatch = req.params.id
     let { registered } = req.body
     let getUserData = userData.find((user) => {
         return user.id == idToPatch
     })
     if (!getUserData) {
-        return rsp.status(404).json({ message: "USER NOT FOUND" })
+        return next(new customError("user not found", 404))
+    }
+    if (registered === false) {
+        return next(new customError("bad request", 400))
     }
     if (getUserData.registered && registered === true) {
-        return rsp.status(400).json({ message: "User already registered" });
+        return next(new customError("Unprocessable Content :- user already registered", 422))
     }
     getUserData.registered = true;
 
     fs.writeFile('user.json', JSON.stringify(userData), 'utf8', (err) => {
         if (err) {
             console.error(err);
+            return next(new customError('Internal Server Error', 500))
         }
     })
-    rsp.status(200).json({ message: 'User registered sucessfully', user: getUserData });
+    rsp.sendResponse({ message: 'User registered sucessfully', user: getUserData })
 }
 
 
 
-const getDynamic = (req, rsp) => {
+const getDynamic = (req, rsp, next) => {
     const { page, limit, sortBy } = req.query;
-    const { Contacts, registered, startYear, endYear, minAge, maxAge } = req.body;
+    const filters = req.body;
 
-    // Start with the original data
-    let rowdata = userData;
+    let filteredData = applyFilters(userData, filters);
+    let paginatedData = paginateData(filteredData, page, limit);
+    let sortedData = sortData(paginatedData, sortBy);
 
-    // Apply filters
-    if (Contacts === "null") {
-        rowdata = rowdata.filter((user) => !user.emergencyContacts || user.emergencyContacts.length === 0);
-    } else if (Contacts === "1") {
-        rowdata = rowdata.filter((user) => user.emergencyContacts && user.emergencyContacts.length >= 1);
+    if (sortedData.length === 0) {
+        return rsp.status(204).send({ message: 'No user information' });
     }
+    rsp.sendResponse({
+        inThisPage: sortedData.length,
+        afterFilter: filteredData.length,
+        users: sortedData,
+    })
+};
 
-    if (registered === "true") {
-        rowdata = rowdata.filter((user) => user.registered === true);
-    } else if (registered === "false") {
-        rowdata = rowdata.filter((user) => user.registered === false);
+const postDynamic = (req, rsp, next) => {
+    const { page, limit, sortBy } = req.body;
+    const filters = req.body;
+
+    let filteredData = applyFilters(userData, filters);
+    let paginatedData = paginateData(filteredData, page, limit);
+    let sortedData = sortData(paginatedData, sortBy);
+
+    if (sortedData.length === 0) {
+        return rsp.status(204).send({ message: 'No user information' });
     }
+    rsp.sendResponse({
+        inThisPage: sortedData.length,
+        afterFilter: filteredData.length,
+        users: sortedData,
+    })
+};
 
-    if (startYear || endYear) {
-        rowdata = rowdata.filter((user) => {
-            const BirthYear = new Date(user.dateOfBirth).getFullYear();
-            if (startYear && endYear) {
-                return BirthYear >= startYear && BirthYear <= endYear;
-            } else if (startYear || endYear) {
-                const targetYear = startYear || endYear;
-                return BirthYear == targetYear;
-            }
-
-        });
-    }
-    if (minAge && maxAge) {
-        rowdata = rowdata.filter((user) => {
-            const currentDate = new Date();
-            const birthDate = new Date(user.dateOfBirth);
-            const age = currentDate.getFullYear() - birthDate.getFullYear();
-            return age >= minAge && age <= maxAge;
-        });
-    } else if (minAge || maxAge) {
-        const currentDate = new Date();
-        const targetAge = minAge || maxAge;
-        rowdata = rowdata.filter((user) => {
-            const birthDate = new Date(user.dateOfBirth);
-            const age = currentDate.getFullYear() - birthDate.getFullYear();
-            return age == targetAge;
-        });
-    }
-
-    // Pagination
-    const pageAsNumber = Number.parseInt(page) || 1;
-    const limitAsNumber = Number.parseInt(limit) || 5;
-    const start = (pageAsNumber - 1) * limitAsNumber;
-    const end = start + limitAsNumber;
-    const getuser = rowdata.slice(start, end);
-
-    // Sorting
-    if (sortBy === "dateOfBirth") {
-        getuser.sort((a, b) => {
-            const dateA = new Date(a.dateOfBirth);
-            const dateB = new Date(b.dateOfBirth);
-            if (dateA < dateB) return -1;
-            if (dateA > dateB) return 1;
-            return 0;
-        });
-    } else if (sortBy) {
-        getuser.sort((a, b) => {
-            if (a[sortBy] < b[sortBy]) return -1;
-            if (a[sortBy] > b[sortBy]) return 1;
-            return 0;
-        });
-    }
-    if (getuser.length === 0) {
-        return rsp.status(204).send({ message: "no user information" })
-    }
-    rsp.status(200).json({ inthisPage: getuser.length, afterFilter: rowdata.length, users: getuser });
-}
-
-
-const PostDaynamic = (req, rsp) => {
-    const { Contacts, registered, startYear, endYear, minAge, maxAge, page, limit, sortBy } = req.body;
-
-    // Start with the original data
-    let rowdata = userData;
-
-    // Apply filters
-    if (Contacts === "null") {
-        rowdata = rowdata.filter((user) => !user.emergencyContacts || user.emergencyContacts.length === 0);
-    } else if (Contacts === "1") {
-        rowdata = rowdata.filter((user) => user.emergencyContacts && user.emergencyContacts.length >= 1);
-    }
-
-    if (registered == "true") {
-        rowdata = rowdata.filter((user) => user.registered === true);
-    } else if (registered == "false") {
-        rowdata = rowdata.filter((user) => user.registered === false);
-    }
-
-    if (startYear || endYear) {
-        rowdata = rowdata.filter((user) => {
-            const BirthYear = new Date(user.dateOfBirth).getFullYear();
-            if (startYear && endYear) {
-                return BirthYear >= startYear && BirthYear <= endYear;
-            } else if (startYear || endYear) {
-                const targetYear = startYear || endYear;
-                return BirthYear == targetYear;
-            }
-
-        });
-    }
-    if (minAge && maxAge) {
-        rowdata = rowdata.filter((user) => {
-            const currentDate = new Date();
-            const birthDate = new Date(user.dateOfBirth);
-            const age = currentDate.getFullYear() - birthDate.getFullYear();
-            return age >= minAge && age <= maxAge;
-        });
-    } else if (minAge || maxAge) {
-        const currentDate = new Date();
-        const targetAge = minAge || maxAge;
-        rowdata = rowdata.filter((user) => {
-            const birthDate = new Date(user.dateOfBirth);
-            const age = currentDate.getFullYear() - birthDate.getFullYear();
-            return age == targetAge;
-        });
-    }
-
-    // Pagination
-    const pageAsNumber = Number.parseInt(page) || 1;
-    const limitAsNumber = Number.parseInt(limit) || 5;
-    const start = (pageAsNumber - 1) * limitAsNumber;
-    const end = start + limitAsNumber;
-    const getuser = rowdata.slice(start, end);
-
-    // Sorting
-    if (sortBy === "dateOfBirth") {
-        getuser.sort((a, b) => {
-            const dateA = new Date(a.dateOfBirth);
-            const dateB = new Date(b.dateOfBirth);
-            if (dateA < dateB) return -1;
-            if (dateA > dateB) return 1;
-            return 0;
-        });
-    } else if (sortBy) {
-        getuser.sort((a, b) => {
-            if (a[sortBy] < b[sortBy]) return -1;
-            if (a[sortBy] > b[sortBy]) return 1;
-            return 0;
-        });
-    }
-    if (getuser.length === 0) {
-        return rsp.status(204).send({ message: "no user information" })
-    }
-
-    rsp.status(200).json({ inthisPage: getuser.length, afterFilter: rowdata.length, users: getuser });
-}
-
-module.exports = { getRetrieval, postRetrieval, getUserById, create, updateUser, deleteUser, patchUser, getDynamic, PostDaynamic, getAllUser }
+module.exports = { getRetrieval, postRetrieval, getUserById, create, updateUser, deleteUser, patchUser, getDynamic, postDynamic, getAllUser }
